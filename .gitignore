@@ -13,4 +13,6 @@ app_for_serv/app_for_serv/x64/
 
 # Visual Studio temporary files
 .vs/
-*.vsidx
+*.vsidx 
+
+app_for_serv/x64/
