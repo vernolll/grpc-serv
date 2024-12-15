@@ -4,6 +4,10 @@
 #include <QObject>
 #include <QUdpSocket>
 #include <QTimer>
+#include <memory>
+#include <grpcpp/grpcpp.h>
+#include "generated/api.pb.h"
+#include "generated/api.grpc.pb.h"
 
 class Client : public QObject
 {
@@ -13,26 +17,34 @@ public:
     explicit Client(QObject* parent = nullptr);
     ~Client();
 
-    void startPinging(const QString& serverIp, int serverPort);  // Запуск пинга
-    void stopPinging();  // Остановка пинга
+    // Методы для управления соединением
+    void connectToServer(const QString& serverIp, int serverPort);
+    void startPinging();
+    void stopPinging();
 
 signals:
-    void pingReceived(const QString& ipPort);  // Сигнал о получении пинга
-    void connectionLost(const QString& ipPort);  // Сигнал о потере соединения
-    void serverDiscovered(const QString& ipPort);  // Сигнал об обнаружении сервера
+    void pingReceived(const QString& serverIp);  // Сигнал, когда пинг получен от сервера
+    void connectionLost(const QString& serverIp);  // Сигнал, когда связь с сервером потеряна
+
 
 private slots:
-    void sendPing();  // Отправка пинга серверу
-    void processResponse();  // Обработка ответа от сервера
+    void processBroadcast();  // Обработка UDP широковещательных сообщений
+    void sendPing();          // Отправка gRPC пинга
 
 private:
-    QUdpSocket* udpSocket;  // UDP сокет для связи с сервером
-    QTimer* pingTimer;  // Таймер для отправки пинга
-    int missedPings;  // Счетчик пропущенных пингов
-    QString currentServerIp;  // IP текущего сервера
-    int currentServerPort;  // Порт текущего сервера
+    // UDP для получения широковещательных сообщений
+    QUdpSocket* udpSocket;
 
-    void processBroadcast();  // Обработка широковещательных пакетов
+    // gRPC подключение и Stub
+    std::shared_ptr<grpc::Channel> grpcChannel;
+    std::unique_ptr<MaintainingApi::Stub> grpcStub;
+
+    // Таймер для периодического отправления пингов
+    QTimer* pingTimer;
+
+    // Данные сервера
+    QString currentServerIp;
+    int currentServerPort;
 };
 
 #endif // CLIENT_H

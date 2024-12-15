@@ -50,7 +50,7 @@ void MainWindow::addServer(const QString& ipPort)
     serverInfo.pingTimer = new QTimer(this);
     serverInfo.missedPings = 0;
 
-    // При нажатии на кнопку "Connect"
+    // При нажатии на кнопку "Connect" или "Disconnect"
     connect(serverInfo.actionButton, &QPushButton::clicked, [this, ipPort]() {
         if (servers.contains(ipPort)) {
             ServerInfo& server = servers[ipPort];
@@ -83,10 +83,7 @@ void MainWindow::handleConnectClicked(ServerInfo& server)
     server.status = "Online";
     server.actionButton->setText("Disconnect");
 
-    // Запускаем пинг для сервера
-    client->startPinging(server.ipPort.split(":").first(), server.ipPort.split(":").last().toInt());
-
-    // Запускаем таймер для отслеживания пропущенных пингов
+    // Запуск таймера для отслеживания пропущенных пингов
     connect(server.pingTimer, &QTimer::timeout, [this, &server]() {
         server.missedPings++;
         if (server.missedPings > 3) {
@@ -94,25 +91,36 @@ void MainWindow::handleConnectClicked(ServerInfo& server)
         }
         });
 
-    server.pingTimer->start(5000);
+    server.pingTimer->start(5000);  // Пинг каждые 5 секунд
 }
+
 
 void MainWindow::handleDisconnectClicked(ServerInfo& server)
 {
+    // Обновляем статус на "Offline"
     server.status = "Offline";
     server.actionButton->setText("Connect");
 
-    client->stopPinging();
-    server.pingTimer->stop();
+    // Останавливаем пинг для конкретного сервера
+    client->stopPinging();  // Здесь нужно будет убедиться, что клиент может работать с несколькими серверами (если потребуется)
+
+    // Останавливаем таймер для данного сервера
+    if (server.pingTimer) {
+        server.pingTimer->stop();
+    }
+
+    // Сброс пропущенных пингов
     server.missedPings = 0;
 
+    // Обновляем статус в таблице для данного сервера
     for (int row = 0; row < ui->serverTable->rowCount(); ++row) {
         if (ui->serverTable->item(row, 0)->text() == server.ipPort) {
-            ui->serverTable->item(row, 2)->setText(server.status);
+            ui->serverTable->item(row, 2)->setText(server.status);  // Обновляем статус на "Offline"
             break;
         }
     }
 }
+
 
 void MainWindow::updateLastPingTime(const QString& ipPort)
 {
@@ -154,10 +162,14 @@ void MainWindow::handleConnectionLost(const QString& ipPort)
 
 void MainWindow::connectToServer(const QString& ipPort)
 {
-    // Добавляем сервер сразу при запуске
     addServer(ipPort);
-
-    // Запускаем пинг для сервера
     ServerInfo& server = servers[ipPort];
-    client->startPinging(server.ipPort.split(":").first(), server.ipPort.split(":").last().toInt());
+
+    // Разделяем IP и порт
+    QStringList ipPortList = ipPort.split(":");
+    QString serverIp = ipPortList.first();
+    int serverPort = ipPortList.last().toInt();
+
+    // Подключаемся к серверу
+    client->connectToServer(serverIp, serverPort);  
 }

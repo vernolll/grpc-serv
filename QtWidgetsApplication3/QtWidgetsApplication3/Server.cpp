@@ -7,7 +7,7 @@
 #include "generated/api.grpc.pb.h"
 
 Server::Server(Ui::QtWidgetsApplication3* ui, QWidget* parent)
-    : QWidget(parent), ui(ui), isClientConnected(false)
+    : QWidget(parent), ui(ui), isClientConnected(false), grpcServer(nullptr)
 {
     connect(ui->pushButton, &QPushButton::clicked, this, &Server::onStartButtonClicked);
 
@@ -23,6 +23,10 @@ Server::~Server() {
     stopBroadcast();
     if (udpSocket) delete udpSocket;
     if (broadcastTimer) delete broadcastTimer;
+
+    if (grpcServer) {
+        grpcServer->Shutdown(); // Остановка gRPC сервера
+    }
 }
 
 void Server::onStartButtonClicked() {
@@ -34,8 +38,8 @@ void Server::onStartButtonClicked() {
     }
 
     serverIp = QHostAddress(QHostAddress::LocalHost).toString();
-    setupGrpcServer();
-    startBroadcast();
+    setupGrpcServer(); // Инициализация gRPC сервера
+    startBroadcast();  // Начинаем вещание
 
     ui->label->setText("Server Status: Broadcasting...");
     ui->textEdit->append("Broadcasting server info...");
@@ -43,27 +47,54 @@ void Server::onStartButtonClicked() {
 
 void Server::startBroadcast() {
     QString message = serverIp + ":" + QString::number(serverPort);
-    udpSocket->writeDatagram(message.toUtf8(), QHostAddress::Broadcast, 10001);  // Отправляем по широковещательному адресу
+    qint64 bytesWritten = udpSocket->writeDatagram(message.toUtf8(), QHostAddress::Broadcast, 10001);  // Отправляем по широковещательному адресу
+    if (bytesWritten == -1) {
+        ui->textEdit->append("Failed to send broadcast message.");
+    }
+    else {
+        ui->textEdit->append("Broadcast message sent: " + message);
+    }
     broadcastTimer->start();
-    ui->textEdit->append("Broadcast message sent: " + message);
 }
 
 void Server::stopBroadcast() {
     broadcastTimer->stop();
+    ui->textEdit->append("Broadcast stopped.");
 }
 
 void Server::setupGrpcServer() {
-    auto service = std::make_shared<ServerServiceImpl>();  // Инициализация сервиса
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(serverIp.toStdString() + ":" + std::to_string(serverPort), grpc::InsecureServerCredentials());
-    builder.RegisterService(service.get());
-    grpcServer = builder.BuildAndStart();
+    try {
+        // Создаем объект сервиса
+        auto service = std::make_shared<ServerServiceImpl>();
 
-    if (grpcServer) {
-        ui->textEdit->append("gRPC server started at " + serverIp + ":" + QString::number(serverPort));
+        // Создаем сервер
+        grpc::ServerBuilder builder;
+        std::string serverAddress = "0.0.0.0:" + std::to_string(serverPort); // Используем 0.0.0.0 для прослушивания всех интерфейсов
+        builder.AddListeningPort(serverAddress, grpc::InsecureServerCredentials());
+        builder.RegisterService(service.get());
+
+        grpcServer = builder.BuildAndStart();
+
+        if (grpcServer == nullptr) {
+            ui->textEdit->append("Failed to start gRPC server. grpcServer is nullptr.");
+            return;  // Ранний выход, если сервер не удалось создать.
+        }
+
+        ui->textEdit->append("gRPC server started at " + QString::fromStdString(serverAddress));
+
+        // Запуск gRPC сервера в отдельном потоке
+        std::thread grpcServerThread([this]() {
+            if (grpcServer) {
+                grpcServer->Wait(); // Ожидаем клиентов в другом потоке
+            }
+            else {
+                ui->textEdit->append("gRPC server is nullptr when trying to wait.");
+            }
+            });
+        grpcServerThread.detach(); // Отсоединяем поток, чтобы сервер продолжал работать в фоновом режиме
     }
-    else {
-        ui->textEdit->append("Failed to start gRPC server.");
+    catch (const std::exception& e) {
+        ui->textEdit->append("Exception during server setup: " + QString::fromStdString(e.what()));
     }
 }
 

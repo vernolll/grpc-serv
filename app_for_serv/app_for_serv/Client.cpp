@@ -1,73 +1,106 @@
 ﻿#include "Client.h"
 #include <QDebug>
-#include <QUdpSocket>
-#include <QTimer>
 #include <QMessageBox>
+#include <QTimer>
+#include <grpcpp/grpcpp.h>
+#include "generated/api.pb.h"
+#include "generated/api.grpc.pb.h"
 
 Client::Client(QObject* parent)
     : QObject(parent),
     udpSocket(new QUdpSocket(this)),
-    pingTimer(new QTimer(this)),
-    missedPings(0)
+    grpcChannel(nullptr),
+    grpcStub(nullptr),
+    pingTimer(new QTimer(this))
 {
+    connect(udpSocket, &QUdpSocket::readyRead, this, &Client::processBroadcast);
     connect(pingTimer, &QTimer::timeout, this, &Client::sendPing);
-    connect(udpSocket, &QUdpSocket::readyRead, this, &Client::processResponse);
-    udpSocket->bind(QUdpSocket::ShareAddress);  // Binding the socket to listen for UDP packets
+
+    // Биндим UDP сокет для прослушивания широковещательных сообщений
+    if (!udpSocket->bind(10000, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
+        qDebug() << "Failed to bind UDP socket to port 10000.";
+        QMessageBox::critical(nullptr, "Error", "Failed to bind UDP socket to port 10000.");
+    }
+    else {
+        qDebug() << "Listening for server broadcasts on port 10000.";
+    }
 }
 
-Client::~Client()
-{
+Client::~Client() {
     delete udpSocket;
     delete pingTimer;
 }
 
-// Этот метод будет вызываться для отправки пинга серверу.
-void Client::startPinging(const QString& serverIp, int serverPort)
-{
-    currentServerIp = serverIp;
-    currentServerPort = serverPort;
-    missedPings = 0;
-
-    // Показать сообщение о подключении
-    QString message = QString("Client is connecting to server at:\nIP: %1\nPort: %2")
-        .arg(currentServerIp)
-        .arg(currentServerPort);
-    QMessageBox::information(nullptr, "Server Connection", message);
-
-    pingTimer->start(5000);  // Отправлять пинг каждые 5 секунд
-}
-
-// Остановить пинги.
-void Client::stopPinging()
-{
-    pingTimer->stop();
-}
-
-// Отправка пинга серверу
-void Client::sendPing()
-{
-    QByteArray pingMessage = "PING";
-    udpSocket->writeDatagram(pingMessage, QHostAddress(currentServerIp), currentServerPort);
-    missedPings++;
-
-    if (missedPings > 3) {
-        emit connectionLost(currentServerIp);  // Сигнал, если нет ответа на 3 пинга
-        stopPinging();
-    }
-}
-
-// Обработка ответа от сервера
-void Client::processResponse()
-{
+void Client::processBroadcast() {
     while (udpSocket->hasPendingDatagrams()) {
-        QByteArray response;
-        response.resize(udpSocket->pendingDatagramSize());
-        udpSocket->readDatagram(response.data(), response.size());
+        QByteArray datagram;
+        datagram.resize(udpSocket->pendingDatagramSize());
+        udpSocket->readDatagram(datagram.data(), datagram.size());
 
-        if (response == "PONG") {
-            missedPings = 0;
-            emit pingReceived(currentServerIp);  // Если пришел ответ "PONG", сбрасываем счетчик пропущенных пингов
+        QString serverInfo = QString::fromUtf8(datagram);
+        qDebug() << "Received broadcast from server:" << serverInfo;
+
+        QStringList parts = serverInfo.split(':');
+        if (parts.size() == 2) {
+            QString serverIp = parts[0];
+            int serverPort = parts[1].toInt();
+
+            connectToServer(serverIp, serverPort);
+            break;  // После первого успешного подключения прекращаем обработку
         }
     }
 }
 
+void Client::connectToServer(const QString& serverIp, int serverPort) {
+    QString serverAddress = serverIp + ":" + QString::number(serverPort);
+    qDebug() << "Attempting to connect to gRPC server at:" << serverAddress;
+
+    grpcChannel = grpc::CreateChannel(serverAddress.toStdString(), grpc::InsecureChannelCredentials());
+    grpcStub = std::make_unique<MaintainingApi::Stub>(grpcChannel);
+
+    // Проверяем подключение к серверу с использованием gRPC
+    PingRequest request;
+    PingResponse response;
+    grpc::ClientContext context;
+
+    request.set_clientip(QHostAddress(QHostAddress::LocalHost).toString().toStdString());
+
+    grpc::Status status = grpcStub->Ping(&context, request, &response);
+
+    if (status.ok()) {
+        qDebug() << "Successfully connected to gRPC server.";
+        QMessageBox::information(nullptr, "Connection", "Connected to server at " + serverAddress);
+        startPinging();
+    }
+    else {
+        qDebug() << "Failed to connect to gRPC server: " << QString::fromStdString(status.error_message());
+        QMessageBox::critical(nullptr, "Connection Error", "Failed to connect to server.\nError: " + QString::fromStdString(status.error_message()));
+    }
+}
+
+void Client::startPinging() {
+    qDebug() << "Starting gRPC pinging...";
+    pingTimer->start(5000);  // Пинг каждые 5 секунд
+}
+
+void Client::stopPinging() {
+    qDebug() << "Stopping gRPC pinging...";
+    pingTimer->stop();
+}
+
+void Client::sendPing() {
+    PingRequest request;
+    request.set_clientip(QHostAddress(QHostAddress::LocalHost).toString().toStdString());
+
+    PingResponse response;
+    grpc::ClientContext context;
+    grpc::Status status = grpcStub->Ping(&context, request, &response);
+
+    if (status.ok()) {
+        emit pingReceived("127.0.0.1:10001");  // Замените на реальный IP и порт
+    }
+    else {
+        qDebug() << "Ping failed: " << QString::fromStdString(status.error_message());
+        emit connectionLost("127.0.0.1:10001");  // Замените на реальный IP и порт
+    }
+}
