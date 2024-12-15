@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CLIENT_H
+#define CLIENT_H
 
 #include <QObject>
 #include <QUdpSocket>
@@ -9,26 +10,29 @@ class Client : public QObject
     Q_OBJECT
 
 public:
-    Client(QObject* parent = nullptr);
+    explicit Client(QObject* parent = nullptr);
     ~Client();
 
-    void startPinging(const QString& serverIp, int serverPort);
-    void stopPinging();
+    void startPinging(const QString& serverIp, int serverPort);  // Запуск пинга
+    void stopPinging();  // Остановка пинга
 
 signals:
-    void pingReceived(const QString& ipPort);
-    void connectionLost(const QString& ipPort);
-    void serverDiscovered(const QString& ipPort);
+    void pingReceived(const QString& ipPort);  // Сигнал о получении пинга
+    void connectionLost(const QString& ipPort);  // Сигнал о потере соединения
+    void serverDiscovered(const QString& ipPort);  // Сигнал об обнаружении сервера
 
 private slots:
-    void sendPing();
-    void processResponse();
-    void processBroadcast();
+    void sendPing();  // Отправка пинга серверу
+    void processResponse();  // Обработка ответа от сервера
 
 private:
-    QUdpSocket* udpSocket;
-    QTimer* pingTimer;
-    QString currentServerIp;
-    int currentServerPort;
-    int missedPings;
+    QUdpSocket* udpSocket;  // UDP сокет для связи с сервером
+    QTimer* pingTimer;  // Таймер для отправки пинга
+    int missedPings;  // Счетчик пропущенных пингов
+    QString currentServerIp;  // IP текущего сервера
+    int currentServerPort;  // Порт текущего сервера
+
+    void processBroadcast();  // Обработка широковещательных пакетов
 };
+
+#endif // CLIENT_H

@@ -1,12 +1,18 @@
 ﻿#include "Client.h"
 #include <QDebug>
+#include <QUdpSocket>
+#include <QTimer>
+#include <QMessageBox>
 
 Client::Client(QObject* parent)
-    : QObject(parent), udpSocket(new QUdpSocket(this)), pingTimer(new QTimer(this)), missedPings(0)
+    : QObject(parent),
+    udpSocket(new QUdpSocket(this)),
+    pingTimer(new QTimer(this)),
+    missedPings(0)
 {
     connect(pingTimer, &QTimer::timeout, this, &Client::sendPing);
     connect(udpSocket, &QUdpSocket::readyRead, this, &Client::processResponse);
-    udpSocket->bind(QUdpSocket::ShareAddress);
+    udpSocket->bind(QUdpSocket::ShareAddress);  // Binding the socket to listen for UDP packets
 }
 
 Client::~Client()
@@ -15,32 +21,42 @@ Client::~Client()
     delete pingTimer;
 }
 
+// Этот метод будет вызываться для отправки пинга серверу.
 void Client::startPinging(const QString& serverIp, int serverPort)
 {
     currentServerIp = serverIp;
     currentServerPort = serverPort;
     missedPings = 0;
 
-    pingTimer->start(5000);
+    // Показать сообщение о подключении
+    QString message = QString("Client is connecting to server at:\nIP: %1\nPort: %2")
+        .arg(currentServerIp)
+        .arg(currentServerPort);
+    QMessageBox::information(nullptr, "Server Connection", message);
+
+    pingTimer->start(5000);  // Отправлять пинг каждые 5 секунд
 }
 
+// Остановить пинги.
 void Client::stopPinging()
 {
     pingTimer->stop();
 }
 
+// Отправка пинга серверу
 void Client::sendPing()
 {
     QByteArray pingMessage = "PING";
     udpSocket->writeDatagram(pingMessage, QHostAddress(currentServerIp), currentServerPort);
-
     missedPings++;
+
     if (missedPings > 3) {
-        emit connectionLost(currentServerIp);
+        emit connectionLost(currentServerIp);  // Сигнал, если нет ответа на 3 пинга
         stopPinging();
     }
 }
 
+// Обработка ответа от сервера
 void Client::processResponse()
 {
     while (udpSocket->hasPendingDatagrams()) {
@@ -50,18 +66,8 @@ void Client::processResponse()
 
         if (response == "PONG") {
             missedPings = 0;
-            emit pingReceived(currentServerIp);
+            emit pingReceived(currentServerIp);  // Если пришел ответ "PONG", сбрасываем счетчик пропущенных пингов
         }
     }
 }
 
-void Client::processBroadcast()
-{
-    while (udpSocket->hasPendingDatagrams()) {
-        QByteArray datagram;
-        datagram.resize(udpSocket->pendingDatagramSize());
-        udpSocket->readDatagram(datagram.data(), datagram.size());
-
-        emit serverDiscovered(QString::fromUtf8(datagram));
-    }
-}
