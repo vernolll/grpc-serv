@@ -1,4 +1,4 @@
-#pragma once
+п»ї#pragma once
 
 #include <QtWidgets/QMainWindow>
 #include "ui_MainWindow.h"
@@ -30,5 +30,5 @@ private:
 
     Ui::MainWindowClass ui;
     Client* client;
-    QMap<QString, ServerInfo> servers;  // Для хранения данных о серверах
+    QMap<QString, ServerInfo> servers;  // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 };

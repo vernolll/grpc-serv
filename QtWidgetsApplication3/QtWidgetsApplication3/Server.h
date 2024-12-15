@@ -1,12 +1,17 @@
+// Server.h
+#ifndef SERVER_H
+#define SERVER_H
+
 #include "ui_QtWidgetsApplication3.h"
+#include "ServerServiceImpl.h"
 #include <QWidget>
 #include <QUdpSocket>
 #include <QTimer>
-#include <QTextEdit>
+#include <grpcpp/grpcpp.h>
+#include "generated/api.pb.h"
+#include "generated/api.grpc.pb.h"
 
-
-class Server : public QWidget
-{
+class Server : public QWidget {
     Q_OBJECT
 
 public:
@@ -15,19 +20,24 @@ public:
 
 private slots:
     void onStartButtonClicked();
-    void handleClientPing();
     void handlePingTimeout();
 
 private:
     void startBroadcast();
+    void stopBroadcast();
+    void setupGrpcServer();
+    void setClientConnected(bool connected);
 
     QUdpSocket* udpSocket;
-    QTimer* pingTimer;
     QTimer* broadcastTimer;
 
-    Ui::QtWidgetsApplication3* ui;  // Ссылка на ui из главного окна
+    Ui::QtWidgetsApplication3* ui;
 
     int serverPort;
     QString serverIp;
-    bool isClientConnected = false;  // Флаг, обозначающий подключение клиента
+    bool isClientConnected = false;  // Флаг подключения клиента
+
+    std::unique_ptr<grpc::Server> grpcServer;  // gRPC сервер
 };
+
+#endif // SERVER_H

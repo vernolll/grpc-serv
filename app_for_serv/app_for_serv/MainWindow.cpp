@@ -1,4 +1,4 @@
-#include "MainWindow.h"
+п»ї#include "MainWindow.h"
 #include <QDateTime>
 #include <QDebug>
 
@@ -16,7 +16,7 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow()
 {
     delete client;
-    // Удаляем кнопки и таймеры для каждого сервера
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     for (auto& server : servers) {
         delete server.actionButton;
         delete server.pingTimer;
@@ -45,15 +45,15 @@ void MainWindow::addServer(const QString& ipPort)
     serverInfo.pingTimer = new QTimer(this);
     serverInfo.missedPings = 0;
 
-    // Обработчик кнопки
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     connect(serverInfo.actionButton, &QPushButton::clicked, [this, ipPort]() {
         if (servers.contains(ipPort)) {
             ServerInfo& server = servers[ipPort];
             if (server.status == "Offline") {
-                handleConnectClicked(server);  // Передаем ссылку на объект
+                handleConnectClicked(server);  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
             }
             else {
-                handleDisconnectClicked(server);  // Передаем ссылку на объект
+                handleDisconnectClicked(server);  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
             }
         }
         });
@@ -78,11 +78,11 @@ void MainWindow::handleConnectClicked(ServerInfo& server)
     server.status = "Online";
     server.actionButton->setText("Disconnect");
 
-    // Начинаем пинговать сервер
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     client->startPinging(server.ipPort.split(":").first(), server.ipPort.split(":").last().toInt());
 
     connect(server.pingTimer, &QTimer::timeout, [this, &server]() {
-        server.missedPings++;  // Увеличиваем количество пропущенных пингов
+        server.missedPings++;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         if (server.missedPings > 3) {
             handleConnectionLost(server.ipPort);
         }
@@ -96,15 +96,15 @@ void MainWindow::handleDisconnectClicked(ServerInfo& server)
     server.status = "Offline";
     server.actionButton->setText("Connect");
 
-    // Останавливаем пинг и таймер
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     client->stopPinging();
     server.pingTimer->stop();
     server.missedPings = 0;
 
-    // Обновление таблицы
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     for (int row = 0; row < ui.serverTable->rowCount(); ++row) {
         if (ui.serverTable->item(row, 0)->text() == server.ipPort) {
-            ui.serverTable->item(row, 2)->setText(server.status);  // Устанавливаем статус как "Offline"
+            ui.serverTable->item(row, 2)->setText(server.status);  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ "Offline"
             break;
         }
     }
@@ -120,7 +120,7 @@ void MainWindow::updateLastPingTime(const QString& ipPort)
     server.lastPingTime = QDateTime::currentDateTime().toString("hh:mm:ss");
     server.missedPings = 0;
 
-    // Обновление таблицы
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     for (int row = 0; row < ui.serverTable->rowCount(); ++row) {
         if (ui.serverTable->item(row, 0)->text() == ipPort) {
             ui.serverTable->item(row, 1)->setText(server.lastPingTime);
@@ -141,7 +141,7 @@ void MainWindow::handleConnectionLost(const QString& ipPort)
     server.actionButton->setText("Connect");
     server.pingTimer->stop();
 
-    // Обновление таблицы
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     for (int row = 0; row < ui.serverTable->rowCount(); ++row) {
         if (ui.serverTable->item(row, 0)->text() == ipPort) {
             ui.serverTable->item(row, 2)->setText("Offline");

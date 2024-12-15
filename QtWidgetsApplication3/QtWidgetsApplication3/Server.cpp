@@ -1,86 +1,85 @@
 #include "Server.h"
 #include <QHostAddress>
-#include <QUdpSocket>
-#include <QTimer>
 #include <QTextEdit>
+#include <iostream>
+#include <grpcpp/grpcpp.h>
+#include "generated/api.pb.h"
+#include "generated/api.grpc.pb.h"
 
-Server::Server(Ui::QtWidgetsApplication3* ui, QWidget* parent) : QWidget(parent), ui(ui) {
-    // Подключаем сигналы и слоты
+Server::Server(Ui::QtWidgetsApplication3* ui, QWidget* parent)
+    : QWidget(parent), ui(ui), isClientConnected(false)
+{
     connect(ui->pushButton, &QPushButton::clicked, this, &Server::onStartButtonClicked);
 
-    // Создаем сокет для UDP
     udpSocket = new QUdpSocket(this);
-
-    // Создаем таймеры
-    pingTimer = new QTimer(this);
     broadcastTimer = new QTimer(this);
 
-    // Устанавливаем интервалы
-    pingTimer->setInterval(5000);  // Пинг каждую секунду
-    broadcastTimer->setInterval(15000);  // Таймаут через 15 секунд
+    broadcastTimer->setInterval(5000); // Интервал вещания
 
-    // Подключаем таймеры к слотам
-    connect(pingTimer, &QTimer::timeout, this, &Server::handleClientPing);
     connect(broadcastTimer, &QTimer::timeout, this, &Server::handlePingTimeout);
 }
 
 Server::~Server() {
-    delete udpSocket;
-    delete pingTimer;
-    delete broadcastTimer;
+    stopBroadcast();
+    if (udpSocket) delete udpSocket;
+    if (broadcastTimer) delete broadcastTimer;
 }
 
 void Server::onStartButtonClicked() {
     bool ok;
-    serverPort = ui->lineEdit->text().toInt(&ok);  // Получаем порт из QLineEdit
+    serverPort = ui->lineEdit->text().toInt(&ok);
     if (!ok || serverPort <= 0) {
-        ui->textEdit->append("Invalid port!");  // Если порт неверный, выводим ошибку в QTextEdit
+        ui->textEdit->append("Invalid port!");
         return;
     }
 
-    serverIp = QHostAddress(QHostAddress::LocalHost).toString();  // Получаем локальный IP
-
-    // Запускаем broadcast
+    serverIp = QHostAddress(QHostAddress::LocalHost).toString();
+    setupGrpcServer();
     startBroadcast();
 
     ui->label->setText("Server Status: Broadcasting...");
     ui->textEdit->append("Broadcasting server info...");
-
-    // Эмуляция подключения клиента
-    isClientConnected = true;
-    pingTimer->start();  // Начинаем отправлять пинги клиенту
 }
 
 void Server::startBroadcast() {
     QString message = serverIp + ":" + QString::number(serverPort);
-
-    // Отправляем сообщение по UDP
-    udpSocket->writeDatagram(message.toUtf8(), QHostAddress::Broadcast, 10001);
-
-    // Запускаем таймер для остановки broadcast
+    udpSocket->writeDatagram(message.toUtf8(), QHostAddress::Broadcast, 10001);  // Отправляем по широковещательному адресу
     broadcastTimer->start();
+    ui->textEdit->append("Broadcast message sent: " + message);
+}
+
+void Server::stopBroadcast() {
+    broadcastTimer->stop();
+}
+
+void Server::setupGrpcServer() {
+    auto service = std::make_shared<ServerServiceImpl>();  // Инициализация сервиса
+    grpc::ServerBuilder builder;
+    builder.AddListeningPort(serverIp.toStdString() + ":" + std::to_string(serverPort), grpc::InsecureServerCredentials());
+    builder.RegisterService(service.get());
+    grpcServer = builder.BuildAndStart();
+
+    if (grpcServer) {
+        ui->textEdit->append("gRPC server started at " + serverIp + ":" + QString::number(serverPort));
+    }
+    else {
+        ui->textEdit->append("Failed to start gRPC server.");
+    }
 }
 
 void Server::handlePingTimeout() {
-    // Если прошло 15 секунд без пинга, прекращаем broadcast
-    if (isClientConnected) {
-        ui->textEdit->append("No pings received in the last 15 seconds. Stopping broadcast.");
-        broadcastTimer->stop();
+    // Проверьте, подключены ли клиенты
+    if (!isClientConnected) {
+        ui->textEdit->append("No clients connected. Continuing broadcast...");
+        startBroadcast();
     }
     else {
-        ui->textEdit->append("Waiting for client connection...");
+        ui->textEdit->append("Client connected. Stopping broadcast...");
+        stopBroadcast();
     }
 }
 
-void Server::handleClientPing() {
-    // Эмуляция получения пинга от клиента
-    if (isClientConnected) {
-        ui->textEdit->append("Ping received from client.");
-
-        // Отправка ответа о том, что пинг успешен
-        // Здесь можно обновить статус или отправить ответ клиенту
-    }
-    else {
-        ui->textEdit->append("No client connected.");
-    }
+// Новый метод для установки флага о подключении клиента
+void Server::setClientConnected(bool connected) {
+    isClientConnected = connected;
 }

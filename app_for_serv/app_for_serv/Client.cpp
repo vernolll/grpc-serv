@@ -1,4 +1,4 @@
-#include "Client.h"
+п»ї#include "Client.h"
 #include <QDebug>
 
 Client::Client(QObject* parent)
@@ -21,7 +21,7 @@ void Client::startPinging(const QString& serverIp, int serverPort)
     currentServerPort = serverPort;
     missedPings = 0;
 
-    pingTimer->start(5000); // Отправлять пинг каждые 5 секунд
+    pingTimer->start(5000);
 }
 
 void Client::stopPinging()
