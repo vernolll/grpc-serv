@@ -1,9 +1,9 @@
-# Игнорировать временные файлы и каталоги сборки в папке QtWidgetsApplication3
-QtWidgetsApplication3/QtWidgetsApplication3/QtWidgetsApplication3.vcxproj
-QtWidgetsApplication3/QtWidgetsApplication3/QtWidgetsApplication3.vcxproj.filters
-QtWidgetsApplication3/QtWidgetsApplication3/QtWidgetsApplication3.vcxproj.user
-QtWidgetsApplication3/QtWidgetsApplication3/x64/
-QtWidgetsApplication3/x64/
+# Игнорировать временные файлы и каталоги сборки в папке server
+server/QtWidgetsApplication3/QtWidgetsApplication3.vcxproj
+server/QtWidgetsApplication3/QtWidgetsApplication3.vcxproj.filters
+server/QtWidgetsApplication3/QtWidgetsApplication3.vcxproj.user
+server/QtWidgetsApplication3/x64/
+server/x64/
 
 # Игнорировать временные файлы и каталоги сборки в папке app_for_serv
 app_for_serv/app_for_serv/app_for_serv.vcxproj

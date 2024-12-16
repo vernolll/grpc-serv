@@ -70,7 +70,6 @@ void Client::connectToServer(const QString& serverIp, int serverPort) {
     if (status.ok()) {
         qDebug() << "Successfully connected to gRPC server.";
         QMessageBox::information(nullptr, "Connection", "Connected to server at " + serverAddress);
-        startPinging();
     }
     else {
         qDebug() << "Failed to connect to gRPC server: " << QString::fromStdString(status.error_message());

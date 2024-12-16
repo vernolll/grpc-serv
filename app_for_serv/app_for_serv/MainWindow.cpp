@@ -80,6 +80,7 @@ void MainWindow::addRowToTable(const ServerInfo& serverInfo)
 
 void MainWindow::handleConnectClicked(ServerInfo& server)
 {
+    client->startPinging();
     server.status = "Online";
     server.actionButton->setText("Disconnect");
 
