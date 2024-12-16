@@ -1,17 +1,16 @@
 #include <grpcpp/grpcpp.h>
 #include "generated/api.pb.h"
 #include "generated/api.grpc.pb.h"
+#include <functional>
 
 class ServerServiceImpl final : public MaintainingApi::Service {
 public:
-    grpc::Status Ping(grpc::ServerContext* context, const PingRequest* request, PingResponse* response) override {
-        // Используем правильный геттер для поля clientip
-        std::string clientIp = request->clientip();  // Получаем IP клиента из запроса
+    using Logger = std::function<void(const std::string&)>;
 
-        // Логика обработки пинга
-        std::cout << "Received Ping from: " << clientIp << std::endl;
+    void setLogger(Logger logger);
 
-        // Заполняем ответ
-        return grpc::Status::OK;
-    }
+    grpc::Status Ping(grpc::ServerContext* context, const PingRequest* request, PingResponse* response) override;
+
+private:
+    Logger logger;
 };
